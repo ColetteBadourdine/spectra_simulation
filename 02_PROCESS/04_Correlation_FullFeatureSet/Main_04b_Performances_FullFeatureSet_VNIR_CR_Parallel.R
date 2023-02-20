@@ -97,7 +97,6 @@ rplot1 = ggplot(data = ResVar, aes(x = Simpson, y = var_tot))+
         axis.title = element_text(size=20),
         axis.text = element_text(size=18),
         strip.text.x = element_text(size = 18))+
-  ylim(c(0, 250))+
   facet_grid(. ~"All spectral features - SD = 1")
 
 

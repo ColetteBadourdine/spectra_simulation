@@ -82,34 +82,22 @@ for (pop in 1:nbPop){
   ResPop$Spectralpop[[pop]] = ReflectanceData[ReflectanceData$Population == pop, -1]
 }
 
+Simulated_reflectance_data = bind_rows(ResPop$Spectralpop, .id = "column_label")
+Simulated_reflectance_data = Simulated_reflectance_data[, -1]
 
-####JE CALCULE LES SPECTRES MOYENS PAR ESPECE POUR CHAQUE TABLEAU DE REFLECTANCE (DES 220 POP)####
+####JE CALCULE LES SPECTRES MOYENS PAR ESPECE ####
 ####JE LES UTILISE POUR CALCULER LES DISTANCES INTER-ESPECE####
 
 # calcul des distances inter-espèce par population
-inter_sp_dist_all <- list()
-ReflectanceData_mean_all <- list()
 
-Spectralpop_all = ResPop$Spectralpop
+ReflectanceData_mean <- compute_MeanSPectraSpecies(Simulated_reflectance_data, as.factor(Simulated_reflectance_data$SPID))
+ReflectanceData_mean <- ReflectanceData_mean$mean_spectra_species
+ReflectanceData_mean$SPID = as.factor(ReflectanceData_mean$SPID)
+rownames(ReflectanceData_mean) = ReflectanceData_mean$SPID
+ReflectanceData_mean = ReflectanceData_mean[, -1]
 
-for (pop in 1:length(Spectralpop_all)){
-  ReflectanceData_mean <- compute_MeanSPectraSpecies(Spectralpop_all[[pop]], as.factor(Spectralpop_all[[pop]]$SPID))
-  ReflectanceData_mean <- ReflectanceData_mean$mean_spectra_species
-  ReflectanceData_mean$SPID = as.factor(ReflectanceData_mean$SPID)
-  rownames(ReflectanceData_mean) = ReflectanceData_mean$SPID
-  ReflectanceData_mean = ReflectanceData_mean[, -1]
-  ReflectanceData_mean_all[[pop]] = ReflectanceData_mean
-
-  distance_inter_sp = dist(ReflectanceData_mean, method="euclidean")
-  inter_sp_dist_all[[pop]] = distance_inter_sp
-}
-
-#which distance is the max across all distance matrix
-max_dist_pop = which.max((lapply(inter_sp_dist_all, function(x) x[which.max(x)])))
-max_dist = max(inter_sp_dist_all[[max_dist_pop]])
-
-inter_sp_dist_all = lapply(inter_sp_dist_all, function(x) x/max_dist)
-
+distance_inter_sp = dist(ReflectanceData_mean, method="euclidean")
+distance_inter_sp_norm = distance_inter_sp/max(distance_inter_sp)
 
 ####JE CALCULE LA VARIANCE TOTALE ET LA VARIANCE INTER-ESPECE####
 
@@ -118,6 +106,8 @@ ResVar_all<- readRDS(file.path(Path_variance, "Var_DivTax_sd1.rds"))
 
 
 ####JE RECUPERE LES TABLES D'ABONDANCE DES 220 POPULATIONS PUIS JE CALCULE LES FREQUENCES####
+
+Spectralpop_all = ResPop$Spectralpop
 
 abundance_table_for_cal_pop <- as.data.frame(matrix(data = 0, nrow = ResPop$PopID, ncol = length(unique(TreeID$SPID))))
 colnames(abundance_table_for_cal_pop) = unique(TreeID$SPID)
@@ -132,32 +122,13 @@ for (pop in 1:ResPop$PopID){
 
 freq <- abundance_table_for_cal_pop/100
 
+rao_all <- rao(freq, as.matrix(distance_inter_sp_norm))
 
-#overwrite rao
-rao <- function(freq, distance_inter_sp){
-  rao = 0
-  for (i in colnames(distance_inter_sp)){
-    for (j in colnames(distance_inter_sp)){
-      rao = rao + (freq[, i] * freq[, j] * (distance_inter_sp[i, j]^2))
-    }
-  }
-  return(rao)
-}
-
-####CALCUL DE RAO####
-
-rao_all <- list()
-for (pop in 1:nrow(freq)){
-  print(pop)
-  temp_rao = rao(freq[pop, ], as.matrix(inter_sp_dist_all[[pop]]))
-  print(temp_rao)
-  rao_all[[pop]] = temp_rao
-}
 
 ####FIGURES####
 
-data_all = cbind(ResVar_all, as.data.frame(do.call(rbind, rao_all)))
-colnames(data_all)[7] = "rao_all"
+data_all = cbind(ResVar_all, rao_all)
+
 
 rplot_1 = ggplot(data = data_all, aes(x = rao_all, y = var_tot))+
   geom_point(aes(color = 'All pixels'))+
@@ -213,7 +184,7 @@ rplot_4 = ggplot(data = data_all, aes(x = Simpson, y = var_sp))+
 FullPlot_1 = ggarrange(rplot_1, rplot_2, rplot_3, rplot_4, common.legend = TRUE, legend = "bottom",
                        nrow=2, ncol = 2, labels = c("A", "B", "C", "D"))
 
-filename = file.path(path_figure, "inter_species_distance_per_pop_rao_sd1.png")
+filename = file.path(path_figure, "inter_species_distance_rao_sd1.png")
 ggsave(filename, plot = FullPlot_1, device = "png", path = NULL,
        scale = 1, width = 10, height = 8, units = "in",
        dpi = 600)
@@ -374,7 +345,7 @@ rplot_4 = ggplot(data = data_all, aes(x = Simpson, y = var_sp))+
 FullPlot_2 = ggarrange(rplot_1, rplot_2, rplot_3, rplot_4, common.legend = TRUE, legend = "bottom",
                        nrow=2, ncol = 2, labels = c("A", "B", "C", "D"))
 
-filename = file.path(path_figure, "inter_species_distance_per_pop_rao_sd05.png")
+filename = file.path(path_figure, "inter_species_distance_rao_sd05.png")
 ggsave(filename, plot = FullPlot_2, device = "png", path = NULL,
        scale = 1, width = 10, height = 8, units = "in",
        dpi = 600)
@@ -535,7 +506,7 @@ rplot_4 = ggplot(data = data_all, aes(x = Simpson, y = var_sp))+
 FullPlot_3 = ggarrange(rplot_1, rplot_2, rplot_3, rplot_4, common.legend = TRUE, legend = "bottom",
                        nrow=2, ncol = 2, labels = c("A", "B", "C", "D"))
 
-filename = file.path(path_figure, "inter_species_distance_per_pop_rao_sd0.png")
+filename = file.path(path_figure, "inter_species_distance_rao_sd0.png")
 ggsave(filename, plot = FullPlot_3, device = "png", path = NULL,
        scale = 1, width = 10, height = 8, units = "in",
        dpi = 600)
@@ -543,7 +514,7 @@ ggsave(filename, plot = FullPlot_3, device = "png", path = NULL,
 
 full_plot_tot = ggarrange(FullPlot_1, FullPlot_2, FullPlot_3, nrow = 1, ncol =3, common.legend = TRUE, legend = "bottom")
 
-filename = file.path(path_figure, "inter_species_distance_per_pop_rao_fullplot.png")
+filename = file.path(path_figure, "inter_species_distance_rao_fullplot.png")
 ggsave(filename, plot = full_plot_tot, device = "png", path = NULL,
        scale = 1, width = 10, height = 8, units = "in",
        dpi = 600)

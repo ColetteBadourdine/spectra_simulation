@@ -113,12 +113,12 @@ weighted_intravarsp_pop <- function(DataTable, IntraSpecificVariance,
 #' @return list containing mean_spectra_species and mean_spectra_species_t
 #' @export
 compute_MeanSPectraSpecies <- function(tab, idSP){
-  mean_spectra_species = matrix(ncol = (ncol(tab)-3))
-  colnames(mean_spectra_species) = colnames(tab[, -c(1:3)])
+  mean_spectra_species = matrix(ncol = ncol(tab)-1)
+  colnames(mean_spectra_species) = colnames(tab[, -1])
   mean_spectra_species = as.data.frame(mean_spectra_species)
   for (s in levels(idSP)){
     #print(s)
-    mean_spectra_species = rbind(mean_spectra_species,t(colMeans(subset(tab, SPID==s)[,-c(1:3)])))
+    mean_spectra_species = rbind(mean_spectra_species,t(colMeans(subset(tab, SPID==s)[,-1])))
   }
   mean_spectra_species = mean_spectra_species[-1, ]
   mean_spectra_species = cbind(unique(levels(idSP)), mean_spectra_species)

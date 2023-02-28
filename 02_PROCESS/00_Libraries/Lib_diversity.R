@@ -48,55 +48,17 @@ create_abundance_table <- function(PopTable, TAB){
   return(freq)
 }
 
-rao <- function(mean_spectra, freq, scale, method="euclidean"){
-  rownames(mean_spectra) = mean_spectra[, 1]
-  mean_spectra= mean_spectra[, -1]
-  dis = ecodist::distance(mean_spectra, method = "euclidean")
-  dis = dist(dis)
-  df = freq
-  rownames_ = df[, 1]
-  df = as.data.frame(df[, -1])
-  rownames(df) = rownames_
-  if (any(df < 0)){
-    stop("Negative value in df")
-  }
-  if (!is.null(dis)) {
-    if (!inherits(dis, "dist")){
-      stop("Object of class 'dist' expected for distance")
+rao <- function(freq, distance_inter_sp){
+  rao_pop = foreach(pop = 1:nrow(freq), .combine = 'c') %dopar% {
+    rao = 0
+    for (i in colnames(freq)){
+      for (j in colnames(freq))
+        rao = rao + (freq[pop, i] * freq[pop, j] * (distance_inter_sp[i, j]^2))
     }
-    if (!is.euclid(dis)){
-      warning("Euclidean property is expected for distance")
-    }
-    dis <- as.matrix(dis)
-    if (nrow(df) != nrow(dis)){
-      stop("Non convenient df")
-    }
-    dis <- as.dist(dis)
+    rao
   }
-  if (is.null(dis)){
-    dis <- as.dist((matrix(1, nrow(df), nrow(df)) - diag(rep(1, nrow(df)))) * sqrt(2))
-  }
-  div <- as.data.frame(rep(0, ncol(df)))
-  names(div) <- "diversity"
-  rownames(div) <- names(df)
-  for (j in 1:ncol(df)) {
-    if (sum(df[, j]) < 1e-16){
-      div[j, ] <- 0
-    }
-    else{
-      div[j, ] <- (t(df[, j]) %*% (as.matrix(dis)^2) %*%
-                     df[, j])/2/(sum(df[, j])^2)
-    }
-  }
-  if (scale == TRUE) {
-    divmax <- divcmax(dis)$value
-    div <- div/divmax
-  }
-  print(div$diversity)
-  rao = round(div$diversity, 2)
-  return(rao)
+  return(rao_pop)
 }
-
 #' compute_diversity_index
 #' Fonctions to compute results tables
 #'
